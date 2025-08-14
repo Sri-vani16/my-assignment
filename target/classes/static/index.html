@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Payment API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .form-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; }
+        input, select { width: 200px; padding: 5px; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .response { margin: 20px 0; padding: 10px; border: 1px solid #ddd; background: #f9f9f9; }
+        .error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Payment API Test Interface</h1>
+        
+        <h2>Process Payment</h2>
+        <div class="form-group">
+            <label>Payment ID:</label>
+            <input type="text" id="paymentId" placeholder="Enter payment ID (use TEST_ERROR to test exception)">
+        </div>
+        <div class="form-group">
+            <label>Amount:</label>
+            <input type="number" id="amount" value="100.00" step="0.01">
+        </div>
+        <div class="form-group">
+            <label>Currency:</label>
+            <select id="currency">
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Payment Method:</label>
+            <select id="paymentMethod">
+                <option value="CREDIT_CARD">Credit Card</option>
+                <option value="DEBIT_CARD">Debit Card</option>
+                <option value="PAYPAL">PayPal</option>
+            </select>
+        </div>
+        <button onclick="processPayment()">Process Payment</button>
+        
+        <h2>Test Exception Handler</h2>
+        <button onclick="testError()">Test Error Endpoint</button>
+        
+        <h2>Get Payment Status</h2>
+        <div class="form-group">
+            <label>Payment ID for Status:</label>
+            <input type="text" id="statusPaymentId" placeholder="Enter payment ID">
+        </div>
+        <button onclick="getPaymentStatus()">Get Status</button>
+        
+        <div id="response" class="response" style="display:none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/payments';
+        
+        function showResponse(data, isError = false) {
+            const responseDiv = document.getElementById('response');
+            responseDiv.style.display = 'block';
+            responseDiv.className = isError ? 'response error' : 'response success';
+            responseDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }
+        
+        async function processPayment() {
+            const paymentData = {
+                paymentId: document.getElementById('paymentId').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                currency: document.getElementById('currency').value,
+                paymentMethod: document.getElementById('paymentMethod').value
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/process`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(paymentData)
+                });
+                
+                const data = await response.json();
+                showResponse({
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: data
+                }, !response.ok);
+            } catch (error) {
+                showResponse({ error: error.message }, true);
+            }
+        }
+        
+        async function testError() {
+            try {
+                const response = await fetch(`${API_BASE}/test-error`);
+                const data = await response.json();
+                showResponse({
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: data
+                }, true);
+            } catch (error) {
+                showResponse({ error: error.message }, true);
+            }
+        }
+        
+        async function getPaymentStatus() {
+            const paymentId = document.getElementById('statusPaymentId').value;
+            if (!paymentId) {
+                alert('Please enter a payment ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/${paymentId}/status`);
+                const data = await response.json();
+                showResponse({
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: data
+                }, !response.ok);
+            } catch (error) {
+                showResponse({ error: error.message }, true);
+            }
+        }
+    </script>
+</body>
+</html>

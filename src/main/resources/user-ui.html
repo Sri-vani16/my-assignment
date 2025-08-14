@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>User Login & CRUD</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .error { color: red; }
+        .success { color: green; }
+        input, button { margin: 0.2em; }
+        .user-list { margin-top: 1em; }
+    </style>
+</head>
+<body>
+<h2>Login</h2>
+<form id="loginForm">
+    <input type="text" id="loginUsername" placeholder="Username" required minlength="3" maxlength="20">
+    <input type="password" id="loginPassword" placeholder="Password" required minlength="6">
+    <button type="submit">Login</button>
+</form>
+<div id="loginResult"></div>
+
+<h2>Create User</h2>
+<form id="createForm">
+    <input type="text" id="createUsername" placeholder="Username" required minlength="3" maxlength="20">
+    <input type="password" id="createPassword" placeholder="Password" required minlength="6">
+    <input type="email" id="createEmail" placeholder="Email" required>
+    <button type="submit">Create</button>
+</form>
+<div id="createResult"></div>
+
+<h2>Users</h2>
+<button onclick="getUsers()">GET All Users</button>
+<div class="user-list" id="userList"></div>
+
+<h2>Update User</h2>
+<form id="updateForm">
+    <input type="number" id="updateId" placeholder="User ID" required>
+    <input type="text" id="updateUsername" placeholder="Username" required minlength="3" maxlength="20">
+    <input type="password" id="updatePassword" placeholder="Password" required minlength="6">
+    <input type="email" id="updateEmail" placeholder="Email" required>
+    <button type="submit">Update</button>
+</form>
+<div id="updateResult"></div>
+
+<h2>Delete User</h2>
+<form id="deleteForm">
+    <input type="number" id="deleteId" placeholder="User ID" required>
+    <button type="submit">Delete</button>
+</form>
+<div id="deleteResult"></div>
+
+<script>
+const api = '/users';
+
+// Login
+loginForm.onsubmit = async e => {
+    e.preventDefault();
+    const username = loginUsername.value.trim();
+    const password = loginPassword.value;
+    if (username.length < 3 || username.length > 20 || password.length < 6) {
+        loginResult.textContent = 'Invalid input.';
+        loginResult.className = 'error';
+        return;
+    }
+    const res = await fetch(api + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    });
+    if (res.status === 200) {
+        const token = await res.text();
+        loginResult.innerHTML = `<div class="success">Login successful!</div><div><strong>JWT Token:</strong><br><textarea readonly style="width:100%;height:60px;">${token}</textarea></div>`;
+    } else if (res.status === 401) {
+        loginResult.textContent = 'Invalid credentials.';
+        loginResult.className = 'error';
+    } else {
+        loginResult.textContent = 'Error: ' + res.status;
+        loginResult.className = 'error';
+    }
+};
+
+// Create
+createForm.onsubmit = async e => {
+    e.preventDefault();
+    const username = createUsername.value.trim();
+    const password = createPassword.value;
+    const email = createEmail.value.trim();
+    if (username.length < 3 || username.length > 20 || password.length < 6 || !email.includes('@')) {
+        createResult.textContent = 'Invalid input.';
+        createResult.className = 'error';
+        return;
+    }
+    const res = await fetch(api, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, email })
+    });
+    if (res.status === 201) {
+        createResult.textContent = 'User created!';
+        createResult.className = 'success';
+        getUsers();
+    } else if (res.status === 400) {
+        createResult.textContent = 'Validation error.';
+        createResult.className = 'error';
+    } else {
+        createResult.textContent = 'Error: ' + res.status;
+        createResult.className = 'error';
+    }
+};
+
+// Get All Users
+async function getUsers() {
+    const res = await fetch(api);
+    if (res.status === 200) {
+        const users = await res.json();
+        userList.innerHTML = users.map(u => `<div>ID: ${u.id}, Username: ${u.username}, Email: ${u.email}</div>`).join('');
+    } else {
+        userList.textContent = 'Error fetching users.';
+    }
+}
+
+// Update
+updateForm.onsubmit = async e => {
+    e.preventDefault();
+    const id = updateId.value;
+    const username = updateUsername.value.trim();
+    const password = updatePassword.value;
+    const email = updateEmail.value.trim();
+    if (!id || username.length < 3 || username.length > 20 || password.length < 6 || !email.includes('@')) {
+        updateResult.textContent = 'Invalid input.';
+        updateResult.className = 'error';
+        return;
+    }
+    const res = await fetch(api + '/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, email })
+    });
+    if (res.status === 200) {
+        updateResult.textContent = 'User updated!';
+        updateResult.className = 'success';
+        getUsers();
+    } else if (res.status === 404) {
+        updateResult.textContent = 'User not found.';
+        updateResult.className = 'error';
+    } else {
+        updateResult.textContent = 'Error: ' + res.status;
+        updateResult.className = 'error';
+    }
+};
+
+// Delete
+deleteForm.onsubmit = async e => {
+    e.preventDefault();
+    const id = deleteId.value;
+    if (!id) {
+        deleteResult.textContent = 'Invalid input.';
+        deleteResult.className = 'error';
+        return;
+    }
+    const res = await fetch(api + '/' + id, { method: 'DELETE' });
+    if (res.status === 204) {
+        deleteResult.textContent = 'User deleted!';
+        deleteResult.className = 'success';
+        getUsers();
+    } else if (res.status === 404) {
+        deleteResult.textContent = 'User not found.';
+        deleteResult.className = 'error';
+    } else {
+        deleteResult.textContent = 'Error: ' + res.status;
+        deleteResult.className = 'error';
+    }
+};
+</script>
+</body>
+</html>
+
