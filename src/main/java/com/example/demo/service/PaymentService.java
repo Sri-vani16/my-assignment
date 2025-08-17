@@ -7,6 +7,8 @@ import com.example.demo.exception.PaymentProcessingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -28,11 +30,31 @@ public class PaymentService {
     
     @Autowired
     private WebClient paymentWebClient;
+    
+    @Autowired
+    private MigrationService migrationService;
+    
+    @Autowired
+    private LegacyPaymentService legacyPaymentService;
 
+    @CacheEvict(value = "paymentStatus", key = "#request.paymentId")
     public PaymentResponse processPayment(PaymentRequest request) {
         int requestId = requestCounter.incrementAndGet();
-        logger.info("[REQ-{}] Processing payment for ID: {}, Amount: {}, Currency: {}", 
-                   requestId, request.getPaymentId(), request.getAmount(), request.getCurrency());
+        long startTime = System.currentTimeMillis();
+        
+        // Check if user should use new API based on migration settings
+        boolean useNewApi = migrationService.shouldUseNewApi(request.getPaymentId()) && 
+                           migrationService.isFeatureEnabled("payment");
+        
+        logger.info("[REQ-{}] Processing payment for ID: {}, Amount: {}, Currency: {}, API: {}", 
+                   requestId, request.getPaymentId(), request.getAmount(), request.getCurrency(), 
+                   useNewApi ? "NEW" : "LEGACY");
+        
+        if (!useNewApi) {
+            PaymentResponse response = legacyPaymentService.processPaymentLegacy(request);
+            migrationService.logMigrationMetrics("processPayment", false, System.currentTimeMillis() - startTime);
+            return response;
+        }
         
         try {
             return paymentWebClient
@@ -52,13 +74,27 @@ public class PaymentService {
         } catch (Exception e) {
             logger.error("[REQ-{}] Unexpected error processing payment: {}", requestId, request.getPaymentId(), e);
             throw new PaymentProcessingException("Payment processing failed", "PROCESSING_ERROR", 500, e);
+        } finally {
+            migrationService.logMigrationMetrics("processPayment", true, System.currentTimeMillis() - startTime);
         }
     }
 
     public PaymentResponse processRefund(RefundRequest request) {
         int requestId = requestCounter.incrementAndGet();
-        logger.info("[REQ-{}] Processing refund for payment ID: {}, Amount: {}", 
-                   requestId, request.getPaymentId(), request.getAmount());
+        long startTime = System.currentTimeMillis();
+        
+        // Check if user should use new API based on migration settings
+        boolean useNewApi = migrationService.shouldUseNewApi(request.getPaymentId()) && 
+                           migrationService.isFeatureEnabled("payment");
+        
+        logger.info("[REQ-{}] Processing refund for payment ID: {}, Amount: {}, API: {}", 
+                   requestId, request.getPaymentId(), request.getAmount(), useNewApi ? "NEW" : "LEGACY");
+        
+        if (!useNewApi) {
+            PaymentResponse response = legacyPaymentService.processRefundLegacy(request);
+            migrationService.logMigrationMetrics("processRefund", false, System.currentTimeMillis() - startTime);
+            return response;
+        }
         
         try {
             return paymentWebClient
@@ -78,12 +114,28 @@ public class PaymentService {
         } catch (Exception e) {
             logger.error("[REQ-{}] Unexpected error processing refund: {}", requestId, request.getPaymentId(), e);
             throw new PaymentProcessingException("Refund processing failed", "REFUND_ERROR", 500, e);
+        } finally {
+            migrationService.logMigrationMetrics("processRefund", true, System.currentTimeMillis() - startTime);
         }
     }
 
+    @Cacheable(value = "paymentStatus", key = "#paymentId")
     public PaymentResponse getPaymentStatus(String paymentId) {
         int requestId = requestCounter.incrementAndGet();
-        logger.info("[REQ-{}] Checking payment status for ID: {}", requestId, paymentId);
+        long startTime = System.currentTimeMillis();
+        
+        // Check if user should use new API based on migration settings
+        boolean useNewApi = migrationService.shouldUseNewApi(paymentId) && 
+                           migrationService.isFeatureEnabled("payment");
+        
+        logger.info("[REQ-{}] Checking payment status for ID: {}, API: {}", requestId, paymentId, 
+                   useNewApi ? "NEW" : "LEGACY");
+        
+        if (!useNewApi) {
+            PaymentResponse response = legacyPaymentService.getPaymentStatusLegacy(paymentId);
+            migrationService.logMigrationMetrics("getPaymentStatus", false, System.currentTimeMillis() - startTime);
+            return response;
+        }
         
         try {
             return paymentWebClient
@@ -105,6 +157,8 @@ public class PaymentService {
         } catch (Exception e) {
             logger.error("[REQ-{}] Unexpected error getting payment status: {}", requestId, paymentId, e);
             return createMockStatusResponse(paymentId);
+        } finally {
+            migrationService.logMigrationMetrics("getPaymentStatus", true, System.currentTimeMillis() - startTime);
         }
     }
 

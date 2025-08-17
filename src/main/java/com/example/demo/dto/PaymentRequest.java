@@ -17,6 +17,9 @@ public class PaymentRequest {
     
     @NotNull
     private String customerId;
+    
+    private String paymentMethod;
+    private String description;
 
     public PaymentRequest() {}
 
@@ -25,6 +28,15 @@ public class PaymentRequest {
         this.amount = amount;
         this.currency = currency;
         this.customerId = customerId;
+    }
+    
+    public PaymentRequest(String paymentId, String userId, BigDecimal amount, String currency, String paymentMethod, String description) {
+        this.paymentId = paymentId;
+        this.customerId = userId;
+        this.amount = amount;
+        this.currency = currency;
+        this.paymentMethod = paymentMethod;
+        this.description = description;
     }
 
     public String getPaymentId() { return paymentId; }
@@ -38,4 +50,12 @@ public class PaymentRequest {
 
     public String getCustomerId() { return customerId; }
     public void setCustomerId(String customerId) { this.customerId = customerId; }
+    
+    public String getUserId() { return customerId; }
+    
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 }

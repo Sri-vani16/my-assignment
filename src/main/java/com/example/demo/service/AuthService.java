@@ -15,17 +15,21 @@ import java.util.Set;
 public class AuthService {
     @Autowired
     private UserRepository userRepository;
-    
+
     @Autowired
     private JwtService jwtService;
+
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     
     private final Set<String> blacklistedTokens = new HashSet<>();
 
     public String login(String username, String password) {
         User user = userRepository.findByUsername(username)
-                .filter(u -> u.getPassword().equals(password))
                 .orElseThrow(() -> new AuthenticationException("Invalid credentials"));
-        
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new AuthenticationException("Invalid credentials");
+        }
         return jwtService.generateToken(user);
     }
 

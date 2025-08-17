@@ -31,11 +31,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> loginPost(@RequestBody LoginRequest loginRequest) {
-        if ("admin".equals(loginRequest.getUsername()) && "password".equals(loginRequest.getPassword())) {
-            return ResponseEntity.ok(Map.of("token", "valid-token"));
-        }
-        return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
+        public ResponseEntity<?> loginPost(@RequestBody LoginRequest loginRequest) {
+            try {
+                String token = authService.login(loginRequest.getUsername(), loginRequest.getPassword());
+                return ResponseEntity.ok(Map.of("token", token));
+            } catch (Exception ex) {
+                return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
+            }
     }
     
     @PostMapping("/logout")
